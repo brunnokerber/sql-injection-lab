@@ -31,18 +31,32 @@ A aplicação foi construída em **Python + Flask + SQLite** e possui **duas rot
 
 ## 🚀 Como Executar o Projeto
 
-### 1. Criar e ativar o ambiente virtual (opcional, recomendado)
+### Opção A: Via Docker / Docker Compose (Recomendado)
+
+Com a imagem pública já publicada no Docker Hub (`bhk123456/sql-injection-lab:latest`), você pode subir a aplicação diretamente com um único comando:
+
+```powershell
+# Usando Docker Compose
+docker compose up -d
+
+# Ou rodando direto da imagem pública do Docker Hub sem precisar clonar o projeto
+docker run -d -p 5000:5000 --name sql-injection-lab bhk123456/sql-injection-lab:latest
+```
+
+### Opção B: Localmente com Python
+
+#### 1. Criar e ativar o ambiente virtual (opcional, recomendado)
 ```powershell
 python -m venv venv
 .\venv\Scripts\Activate.ps1
 ```
 
-### 2. Instalar as dependências
+#### 2. Instalar as dependências
 ```powershell
 pip install -r requirements.txt
 ```
 
-### 3. Iniciar o servidor Flask
+#### 3. Iniciar o servidor Flask
 ```powershell
 python app.py
 ```

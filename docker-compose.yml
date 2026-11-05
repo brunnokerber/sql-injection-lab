@@ -1,0 +1,11 @@
+services:
+  sql-injection-lab:
+    image: bhk123456/sql-injection-lab:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sql-injection-lab
+    ports:
+      - "5000:5000"
+    restart: unless-stopped
+
