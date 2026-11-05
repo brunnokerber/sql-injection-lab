@@ -29,7 +29,27 @@ A aplicação foi construída em **Python + Flask + SQLite** e possui **duas rot
 
 ---
 
-## 🚀 Como Executar o Projeto
+## 🌐 Demonstração Online (Hospedagem Gratuita - PythonAnywhere)
+
+O laboratório está publicado e acessível online gratuitamente via **PythonAnywhere**, sem necessidade de instalação local:
+
+- 🔗 **Acesso Principal**: [https://bhk123456.pythonanywhere.com](https://bhk123456.pythonanywhere.com)
+- 🛡️ **Teste Direto na Rota Segura (com payload `' OR 1=1 --` bloqueado)**:
+  [https://bhk123456.pythonanywhere.com/seguro/produtos?filtro=%27+OR+1%3D1+--](https://bhk123456.pythonanywhere.com/seguro/produtos?filtro=%27+OR+1%3D1+--)
+- 🔓 **Teste Direto na Rota Vulnerável (com payload `' OR 1=1 --` expondo item restrito)**:
+  [https://bhk123456.pythonanywhere.com/vuln/produtos?filtro=%27+OR+1%3D1+--](https://bhk123456.pythonanywhere.com/vuln/produtos?filtro=%27+OR+1%3D1+--)
+
+### 🔄 Como atualizar o Deploy no PythonAnywhere
+No console **Bash** do PythonAnywhere (dentro da pasta `~/sql-injection-lab`), execute:
+
+```bash
+git pull && git checkout app.py && touch /var/www/bhk123456_pythonanywhere_com_wsgi.py
+```
+Em seguida, clique no botão verde **Reload bhk123456.pythonanywhere.com** na aba **Web** e atualize a página da aplicação.
+
+---
+
+## 🚀 Como Executar o Projeto Localmente
 
 ### Opção A: Via Docker / Docker Compose (Recomendado)
 
