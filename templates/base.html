@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lab SQL Injection - Segurança e Auditoria de Sistemas</title>
+    <style>
+        :root {
+            --bg-dark: #0f172a;
+            --card-bg: #1e293b;
+            --border-color: #334155;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --vuln-primary: #ef4444;
+            --vuln-bg: rgba(239, 68, 68, 0.12);
+            --seguro-primary: #10b981;
+            --seguro-bg: rgba(16, 185, 129, 0.12);
+            --accent: #3b82f6;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            line-height: 1.5;
+            padding-bottom: 3rem;
+        }
+
+        .topbar {
+            background-color: #020617;
+            border-bottom: 2px solid {% if modo == 'vuln' %}var(--vuln-primary){% else %}var(--seguro-primary){% endif %};
+            padding: 0.9rem 1.5rem;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            font-weight: 700;
+            font-size: 1.1rem;
+        }
+
+        .badge-modo {
+            padding: 0.25rem 0.7rem;
+            border-radius: 999px;
+            font-size: 0.78rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .badge-vuln {
+            background-color: var(--vuln-bg);
+            color: #fca5a5;
+            border: 1px solid var(--vuln-primary);
+        }
+
+        .badge-seguro {
+            background-color: var(--seguro-bg);
+            color: #6ee7b7;
+            border: 1px solid var(--seguro-primary);
+        }
+
+        .nav-controls {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+
+        .mode-switcher {
+            display: inline-flex;
+            background: #1e293b;
+            border-radius: 0.5rem;
+            padding: 0.2rem;
+            border: 1px solid var(--border-color);
+        }
+
+        .mode-switcher a {
+            text-decoration: none;
+            padding: 0.35rem 0.85rem;
+            border-radius: 0.35rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            transition: all 0.15s;
+        }
+
+        .mode-switcher a.active-vuln {
+            background-color: var(--vuln-primary);
+            color: white;
+        }
+
+        .mode-switcher a.active-seguro {
+            background-color: var(--seguro-primary);
+            color: #022c22;
+        }
+
+        .nav-links a {
+            color: var(--text-main);
+            text-decoration: none;
+            font-size: 0.9rem;
+            padding: 0.4rem 0.75rem;
+            border-radius: 0.375rem;
+            background: #1e293b;
+            border: 1px solid var(--border-color);
+        }
+
+        .nav-links a:hover {
+            border-color: var(--text-muted);
+        }
+
+        .container {
+            max-width: 1120px;
+            margin: 1.5rem auto;
+            padding: 0 1.25rem;
+        }
+
+        .sql-inspector {
+            background: #020617;
+            border: 1px solid var(--border-color);
+            border-left: 4px solid {% if modo == 'vuln' %}var(--vuln-primary){% else %}var(--seguro-primary){% endif %};
+            border-radius: 0.5rem;
+            padding: 1rem 1.25rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .sql-inspector-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            margin-bottom: 0.5rem;
+        }
+
+        .sql-code {
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 0.92rem;
+            background: #0f172a;
+            padding: 0.75rem 1rem;
+            border-radius: 0.375rem;
+            color: #38bdf8;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+            border: 1px solid #1e293b;
+        }
+
+        .sql-params {
+            margin-top: 0.5rem;
+            font-family: 'Consolas', monospace;
+            font-size: 0.85rem;
+            color: #a7f3d0;
+        }
+
+        .sql-error {
+            margin-top: 0.5rem;
+            font-family: 'Consolas', monospace;
+            font-size: 0.85rem;
+            color: #fca5a5;
+            background: rgba(239, 68, 68, 0.1);
+            padding: 0.5rem 0.75rem;
+            border-radius: 0.35rem;
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1.2fr 0.8fr;
+            gap: 1.5rem;
+        }
+
+        @media (max-width: 860px) {
+            .grid-2 {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 0.65rem;
+            padding: 1.5rem;
+            margin-bottom: 1.25rem;
+        }
+
+        .card h2 {
+            font-size: 1.2rem;
+            margin-bottom: 0.35rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .card p.subtitle {
+            color: var(--text-muted);
+            font-size: 0.88rem;
+            margin-bottom: 1.2rem;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 0.35rem;
+            color: #cbd5e1;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 0.6rem 0.8rem;
+            border-radius: 0.4rem;
+            border: 1px solid var(--border-color);
+            background-color: #0f172a;
+            color: var(--text-main);
+            font-size: 0.92rem;
+            font-family: inherit;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 0.6rem 1.1rem;
+            border-radius: 0.4rem;
+            font-weight: 600;
+            font-size: 0.9rem;
+            border: none;
+            cursor: pointer;
+            text-decoration: none;
+            transition: opacity 0.15s;
+        }
+
+        .btn:hover {
+            opacity: 0.9;
+        }
+
+        .btn-vuln {
+            background-color: var(--vuln-primary);
+            color: white;
+        }
+
+        .btn-seguro {
+            background-color: var(--seguro-primary);
+            color: #022c22;
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 1px solid var(--border-color);
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            padding: 0.35rem 0.7rem;
+        }
+
+        .btn-outline:hover {
+            color: var(--text-main);
+            border-color: var(--text-main);
+        }
+
+        .payload-item {
+            background: #0f172a;
+            border: 1px solid var(--border-color);
+            border-radius: 0.45rem;
+            padding: 0.75rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .payload-item h4 {
+            font-size: 0.88rem;
+            color: #f8fafc;
+            margin-bottom: 0.25rem;
+        }
+
+        .payload-item p {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-bottom: 0.5rem;
+        }
+
+        .payload-code {
+            display: block;
+            font-family: 'Consolas', monospace;
+            font-size: 0.8rem;
+            color: #fbbf24;
+            background: #020617;
+            padding: 0.4rem 0.6rem;
+            border-radius: 0.3rem;
+            margin-bottom: 0.5rem;
+            word-break: break-all;
+        }
+
+        .alert {
+            padding: 0.8rem 1rem;
+            border-radius: 0.45rem;
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+        }
+
+        .alert-danger {
+            background: rgba(239, 68, 68, 0.15);
+            border: 1px solid var(--vuln-primary);
+            color: #fecaca;
+        }
+
+        .alert-success {
+            background: rgba(16, 185, 129, 0.15);
+            border: 1px solid var(--seguro-primary);
+            color: #a7f3d0;
+        }
+
+        .alert-info {
+            background: rgba(59, 130, 246, 0.15);
+            border: 1px solid var(--accent);
+            color: #bfdbfe;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 0.75rem;
+            font-size: 0.9rem;
+        }
+
+        th, td {
+            text-align: left;
+            padding: 0.75rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        th {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            background: #0f172a;
+        }
+
+        tr:hover td {
+            background-color: rgba(255, 255, 255, 0.02);
+        }
+    </style>
+</head>
+<body>
+    <header class="topbar">
+        <div class="brand">
+            <span>Segurança e Auditoria de Sistemas</span>
+            {% if modo == 'vuln' %}
+                <span class="badge-modo badge-vuln">Modo Vulnerável (/vuln)</span>
+            {% else %}
+                <span class="badge-modo badge-seguro">Modo Seguro (/seguro)</span>
+            {% endif %}
+        </div>
+
+        <div class="nav-controls">
+            <div class="mode-switcher">
+                {% set tela_atual = 'produtos' if request.endpoint and 'produtos' in request.endpoint else 'login' %}
+                <a href="{{ url_for('vuln_' + tela_atual) }}" class="{% if modo == 'vuln' %}active-vuln{% endif %}">
+                    🔓 Rota Vulnerável
+                </a>
+                <a href="{{ url_for('seguro_' + tela_atual) }}" class="{% if modo == 'seguro' %}active-seguro{% endif %}">
+                    🛡️ Rota Segura
+                </a>
+            </div>
+
+            <div class="nav-links">
+                <a href="{{ url_for(modo + '_login') }}">Tela de Login</a>
+                <a href="{{ url_for(modo + '_produtos') }}">Produtos</a>
+                {% if session.get('username') %}
+                    <a href="{{ url_for('logout', modo=modo) }}">Sair ({{ session.get('username') }} | {{ session.get('role') }})</a>
+                {% endif %}
+            </div>
+
+            <form action="{{ url_for('reset_db') }}" method="POST" style="display:inline;">
+                <input type="hidden" name="next" value="{{ request.path }}">
+                <button type="submit" class="btn btn-outline" title="Restaurar tabelas e dados originais">
+                    🔄 Resetar Banco
+                </button>
+            </form>
+        </div>
+    </header>
+
+    <main class="container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        {% if erro %}
+            <div class="alert alert-danger">{{ erro }}</div>
+        {% endif %}
+
+        {% set audit = session.get('sql_audit') %}
+        {% if audit %}
+            <section class="sql-inspector">
+                <div class="sql-inspector-header">
+                    <span>🔍 Monitor de Auditoria SQL — Última Operação: <strong>{{ audit.operacao }}</strong></span>
+                    <span>Rota: <strong>/{{ audit.modo }}</strong></span>
+                </div>
+                <div class="sql-code">{{ audit.query }}</div>
+                {% if audit.params %}
+                    <div class="sql-params">🔒 Parâmetros vinculados separadamente (Prepared Statement): {{ audit.params }}</div>
+                {% endif %}
+                {% if audit.erro %}
+                    <div class="sql-error">⚠️ Exceção SQLite: {{ audit.erro }}</div>
+                {% endif %}
+            </section>
+        {% endif %}
+
+        {% block content %}{% endblock %}
+    </main>
+</body>
+</html>
